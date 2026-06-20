@@ -14,7 +14,12 @@ class BM25Index:
         self._corpus_tokens = [c["text"].lower().split() for c in chunks]
         self._index = BM25Okapi(self._corpus_tokens) if self._corpus_tokens else None
 
-    def search(self, query: str, k: int = 50) -> list[dict]:
+    def search(
+    self,
+    query: str,
+    k: int = 50,
+    intent: dict | None = None,
+) -> list[dict]:
         if self._index is None:
             return []
         q_tokens = query.lower().split()
