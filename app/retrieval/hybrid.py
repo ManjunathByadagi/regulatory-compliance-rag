@@ -21,3 +21,10 @@ def reciprocal_rank_fusion(rankings: list[list[dict]], k: int = 60) -> list[dict
 
     fused.sort(key=lambda x: x["rrf_score"], reverse=True)
     return fused
+
+def diversify_for_comparison(results: list[dict]) -> list[dict]:
+    """
+    Basic diversification for comparison queries.
+    Returns results unchanged for now.
+    """
+    return results
