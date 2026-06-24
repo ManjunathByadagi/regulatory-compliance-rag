@@ -1,0 +1,14 @@
+[
+  {
+    "question": "What CRAR percentage must urban cooperative banks maintain?",
+    "ground_truth": "Urban cooperative banks must maintain a minimum CRAR of 9%."
+  },
+  {
+    "question": "What is the difference between CRAR for commercial and cooperative banks?",
+    "ground_truth": "Commercial banks generally have higher CRAR requirements than urban cooperative banks."
+  },
+  {
+    "question": "What are NPA classification guidelines?",
+    "ground_truth": "NPA classification depends on overdue days and asset quality buckets as per RBI guidance."
+  }
+]
