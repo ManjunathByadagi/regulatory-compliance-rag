@@ -201,7 +201,6 @@ pymongo==4.5.0
 PyMuPDF==1.27.2.3
 PyNaCl==1.6.0
 pyparsing==3.2.0
-pypiwin32==223
 pyroaring==1.0.3
 pyserial==3.5
 PySocks==1.7.1
@@ -215,7 +214,6 @@ python-multipart==0.0.20
 pytokens==0.3.0
 pyttsx3==2.99
 pytz==2025.2
-pywin32==308
 pywinpty==2.0.14
 PyYAML==6.0.2
 pyzmq==26.2.0
