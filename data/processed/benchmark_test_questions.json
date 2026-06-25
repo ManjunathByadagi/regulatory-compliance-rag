@@ -1,0 +1,10 @@
+[
+  {
+    "question": "What CRAR percentage must urban cooperative banks maintain?",
+    "ground_truth": "Urban cooperative banks must maintain a minimum CRAR of 9%."
+  },
+  {
+    "question": "What is Basel III implementation timeline?",
+    "ground_truth": "Basel III implementation timeline varies by jurisdiction and circular."
+  }
+]
