@@ -87,7 +87,7 @@ class RAGService:
             )
         else:
             dense = self.vector_store.dense_search(request.question, k=120, intent=intent, filters=request.filters)
-            keyword = self.bm25.search(request.question, k=120, intent=intent)
+            keyword = self.bm25.search(request.question, k=120, intent=intent, filters=request.filters)
             fused = reciprocal_rank_fusion([dense, keyword], intent=intent)
             candidates = diversify_by_document(deduplicate_chunks(fused), limit=80, per_document=5)
             reranked = self.reranker.rerank(request.question, candidates, top_n=max(request.max_sources * 2, request.max_sources), intent=intent)
@@ -118,7 +118,7 @@ class RAGService:
         for org in intent.organizations:
             branch_intent = intent_for_organization(intent, org)
             dense = self.vector_store.dense_search(question, k=60, intent=branch_intent, filters={"organization": org})
-            keyword = self.bm25.search(question, k=60, intent=branch_intent)
+            keyword = self.bm25.search(question, k=60, intent=branch_intent, filters={"organization": org})
             fused_branch = reciprocal_rank_fusion([dense, keyword], intent=branch_intent)
             for item in fused_branch:
                 item = dict(item)

@@ -7,6 +7,7 @@ from sentence_transformers import SentenceTransformer
 
 from app.core.config import settings
 from app.ingestion.chunking import Chunk
+from app.retrieval.query_understanding import QueryIntent, metadata_boost
 
 
 class VectorStore:
@@ -42,9 +43,20 @@ class VectorStore:
         self.collection.upsert(ids=ids, documents=docs, embeddings=embeddings, metadatas=metadatas)
         return len(ids)
 
-    def dense_search(self, query: str, k: int = 50) -> list[dict]:
-        q_emb = self.embedder.encode([query], normalize_embeddings=True).tolist()[0]
-        res = self.collection.query(query_embeddings=[q_emb], n_results=k)
+    def dense_search(
+        self,
+        query: str,
+        k: int = 50,
+        intent: QueryIntent | None = None,
+        filters: dict | None = None,
+    ) -> list[dict]:
+        search_text = intent.expanded_query if intent is not None else query
+        q_emb = self.embedder.encode([search_text], normalize_embeddings=True).tolist()[0]
+        query_args = {"query_embeddings": [q_emb], "n_results": k}
+        if filters:
+            query_args["where"] = filters
+
+        res = self.collection.query(**query_args)
         items: list[dict] = []
 
         ids = res.get("ids", [[]])[0]
@@ -53,14 +65,18 @@ class VectorStore:
         dists = res.get("distances", [[]])[0]
 
         for i in range(len(ids)):
-            items.append(
-                {
-                    "chunk_id": ids[i],
-                    "text": docs[i],
-                    "metadata": mets[i],
-                    "score": 1.0 - float(dists[i]) if i < len(dists) else 0.0,
-                }
-            )
+            dense_score = 1.0 - float(dists[i]) if i < len(dists) else 0.0
+            item = {
+                "chunk_id": ids[i],
+                "text": docs[i],
+                "metadata": mets[i],
+                "score": dense_score,
+                "dense_score": dense_score,
+            }
+            if intent is not None:
+                item["score"] += 0.05 * metadata_boost(intent, item)
+            items.append(item)
+        items.sort(key=lambda x: x["score"], reverse=True)
         return items
 
     def all_docs(self) -> list[dict]:
