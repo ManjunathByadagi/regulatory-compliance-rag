@@ -3,7 +3,8 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from time import time
 
-from fastapi import Header, HTTPException, status
+from fastapi import HTTPException, Security, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
 
@@ -25,14 +26,25 @@ class RateLimiter:
 
 rate_limiter = RateLimiter(settings.rate_limit_per_minute)
 
+bearer_scheme = HTTPBearer(
+    bearerFormat="API key",
+    scheme_name="BearerAuth",
+    description="Use the configured API key as a bearer token.",
+    auto_error=False,
+)
 
-def validate_api_key(authorization: str | None = Header(default=None)) -> str:
-    if not authorization or not authorization.startswith("Bearer "):
+
+def get_current_user(credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme)) -> str:
+    if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
 
-    token = authorization.split(" ", 1)[1].strip()
+    token = credentials.credentials.strip()
     if token != settings.api_key:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
 
     rate_limiter.check(token)
     return token
+
+
+def validate_api_key(credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme)) -> str:
+    return get_current_user(credentials)
