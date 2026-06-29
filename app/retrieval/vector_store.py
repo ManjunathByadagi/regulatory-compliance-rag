@@ -12,9 +12,21 @@ from app.retrieval.query_understanding import QueryIntent, metadata_boost
 
 class VectorStore:
     def __init__(self) -> None:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("Loading VectorStore")
         self.client = chromadb.PersistentClient(path=settings.vector_db_path)
         self.collection = self.client.get_or_create_collection(name="regulatory_chunks")
-        self.embedder = SentenceTransformer(settings.embedding_model)
+        self._embedder = None
+
+    @property
+    def embedder(self) -> SentenceTransformer:
+        if self._embedder is None:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info("Loading Embedding Model")
+            self._embedder = SentenceTransformer(settings.embedding_model)
+        return self._embedder
 
     def upsert_chunks(self, chunks: Iterable[Chunk], source_path: str, doc_type: str, organization: str) -> int:
         ids: list[str] = []

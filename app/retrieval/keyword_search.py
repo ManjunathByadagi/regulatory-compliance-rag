@@ -11,7 +11,14 @@ class BM25Index:
         self._payloads: list[dict] = []
         self._index: BM25Okapi | None = None
 
+    @property
+    def is_built(self) -> bool:
+        return self._index is not None
+
     def build(self, chunks: list[dict]) -> None:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("Loading BM25")
         self._payloads = chunks
         self._corpus_tokens = [c["text"].lower().split() for c in chunks]
         self._index = BM25Okapi(self._corpus_tokens) if self._corpus_tokens else None

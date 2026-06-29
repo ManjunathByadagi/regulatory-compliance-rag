@@ -19,6 +19,9 @@ from app.core.config import settings
 from app.core.db import QueryAuditDB
 from app.core.rag_service import RAGService
 from app.core.schemas import QueryRequest
+from app.utils.logging_utils import configure_logging
+
+configure_logging()
 
 
 APP_VERSION = "v1.0.0"
@@ -493,6 +496,12 @@ def get_rag_service() -> RAGService:
     return RAGService()
 
 
+@st.cache_resource
+def get_lightweight_vector_store():
+    from app.retrieval.vector_store import VectorStore
+    return VectorStore()
+
+
 def init_state() -> None:
     defaults = {
         "authenticated": False,
@@ -501,6 +510,7 @@ def init_state() -> None:
         "active_chat_id": None,
         "last_latency_ms": None,
         "service_error": None,
+        "service_initialized": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -557,6 +567,8 @@ def login() -> None:
 
 
 def safe_service() -> RAGService | None:
+    if not st.session_state.get("service_initialized", False):
+        return None
     try:
         service = get_rag_service()
         st.session_state.service_error = None
@@ -568,14 +580,36 @@ def safe_service() -> RAGService | None:
 
 def collect_index_stats(service: RAGService | None) -> dict[str, str]:
     if service is None:
-        return {
-            "api_status": "Offline",
-            "documents": "0",
-            "chunks": "0",
-            "vector_status": "Unavailable",
-            "avg_latency": average_latency_label(),
-            "model": settings.embedding_model.split("/")[-1],
-        }
+        if st.session_state.get("service_error"):
+            return {
+                "api_status": "Offline",
+                "documents": "0",
+                "chunks": "0",
+                "vector_status": "Unavailable",
+                "avg_latency": average_latency_label(),
+                "model": settings.embedding_model.split("/")[-1],
+            }
+        try:
+            vs = get_lightweight_vector_store()
+            docs = vs.all_docs()
+            document_count = len({str((doc.get("metadata") or {}).get("document", "")) for doc in docs if doc.get("metadata")})
+            return {
+                "api_status": "Standby",
+                "documents": str(document_count),
+                "chunks": str(len(docs)),
+                "vector_status": "Standby",
+                "avg_latency": average_latency_label(),
+                "model": settings.embedding_model.split("/")[-1],
+            }
+        except Exception:
+            return {
+                "api_status": "Standby",
+                "documents": "-",
+                "chunks": "-",
+                "vector_status": "Standby",
+                "avg_latency": average_latency_label(),
+                "model": settings.embedding_model.split("/")[-1],
+            }
     try:
         docs = service.vector_store.all_docs()
         document_count = len({str((doc.get("metadata") or {}).get("document", "")) for doc in docs if doc.get("metadata")})
@@ -873,11 +907,20 @@ def render_input_area(service: RAGService | None) -> None:
             create_new_chat()
             st.rerun()
 
-    prompt = st.chat_input("Ask a compliance question...", disabled=service is None)
-    if prompt and service is not None:
-        with st.spinner("Reviewing regulatory sources..."):
-            submit_question(service, prompt)
-        st.rerun()
+    is_disabled = st.session_state.get("service_error") is not None
+    prompt = st.chat_input("Ask a compliance question...", disabled=is_disabled)
+    if prompt:
+        if service is None:
+            with st.spinner("Initializing RAG models (first-time startup)..."):
+                st.session_state.service_initialized = True
+                service = safe_service()
+        
+        if service is not None:
+            with st.spinner("Reviewing regulatory sources..."):
+                submit_question(service, prompt)
+            st.rerun()
+        else:
+            st.rerun()
 
 
 def scroll_to_bottom() -> None:

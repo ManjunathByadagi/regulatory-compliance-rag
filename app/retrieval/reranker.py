@@ -8,7 +8,16 @@ from app.retrieval.query_understanding import QueryIntent, analyze_query, metada
 
 class CrossEncoderReranker:
     def __init__(self) -> None:
-        self.model = CrossEncoder(settings.reranker_model)
+        self._model = None
+
+    @property
+    def model(self) -> CrossEncoder:
+        if self._model is None:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info("Loading CrossEncoder")
+            self._model = CrossEncoder(settings.reranker_model)
+        return self._model
 
     def rerank(self, query: str, candidates: list[dict], top_n: int = 5, intent: QueryIntent | None = None) -> list[dict]:
         if not candidates:

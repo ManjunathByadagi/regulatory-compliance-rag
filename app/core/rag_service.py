@@ -22,7 +22,13 @@ class RAGService:
         self.bm25 = BM25Index()
         self.reranker = CrossEncoderReranker()
         self.audit_db = QueryAuditDB()
-        self._refresh_bm25_index()
+        self._logged_ready = False
+
+    @property
+    def bm25_index(self) -> BM25Index:
+        if not self.bm25.is_built:
+            self._refresh_bm25_index()
+        return self.bm25
 
     def _refresh_bm25_index(self) -> None:
         all_docs = self.vector_store.all_docs()
@@ -87,7 +93,7 @@ class RAGService:
             )
         else:
             dense = self.vector_store.dense_search(request.question, k=120, intent=intent, filters=request.filters)
-            keyword = self.bm25.search(request.question, k=120, intent=intent, filters=request.filters)
+            keyword = self.bm25_index.search(request.question, k=120, intent=intent, filters=request.filters)
             fused = reciprocal_rank_fusion([dense, keyword], intent=intent)
             candidates = diversify_by_document(deduplicate_chunks(fused), limit=80, per_document=5)
             reranked = self.reranker.rerank(request.question, candidates, top_n=max(request.max_sources * 2, request.max_sources), intent=intent)
@@ -109,6 +115,17 @@ class RAGService:
             sources=[s.model_dump() for s in response.sources],
         )
 
+        if not self._logged_ready:
+            if (
+                self.vector_store._embedder is not None
+                and self.reranker._model is not None
+                and self.bm25.is_built
+            ):
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info("RAG Ready")
+                self._logged_ready = True
+
         return response
 
     def _comparison_candidates(self, question: str, intent) -> list[dict]:
@@ -118,7 +135,7 @@ class RAGService:
         for org in intent.organizations:
             branch_intent = intent_for_organization(intent, org)
             dense = self.vector_store.dense_search(question, k=60, intent=branch_intent, filters={"organization": org})
-            keyword = self.bm25.search(question, k=60, intent=branch_intent, filters={"organization": org})
+            keyword = self.bm25_index.search(question, k=60, intent=branch_intent, filters={"organization": org})
             fused_branch = reciprocal_rank_fusion([dense, keyword], intent=branch_intent)
             for item in fused_branch:
                 item = dict(item)
@@ -127,7 +144,7 @@ class RAGService:
             rankings.append(fused_branch)
 
         global_dense = self.vector_store.dense_search(question, k=80, intent=intent)
-        global_keyword = self.bm25.search(question, k=80, intent=intent)
+        global_keyword = self.bm25_index.search(question, k=80, intent=intent)
         rankings.extend([global_dense, global_keyword, branch_items])
         fused = reciprocal_rank_fusion(rankings, intent=intent)
         return diversify_for_comparison(
