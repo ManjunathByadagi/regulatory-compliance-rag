@@ -498,8 +498,7 @@ def get_rag_service() -> RAGService:
 
 @st.cache_resource
 def get_lightweight_vector_store():
-    from app.retrieval.vector_store import VectorStore
-    return VectorStore()
+    return None
 
 
 def init_state() -> None:
@@ -589,27 +588,33 @@ def collect_index_stats(service: RAGService | None) -> dict[str, str]:
                 "avg_latency": average_latency_label(),
                 "model": settings.embedding_model.split("/")[-1],
             }
-        try:
-            vs = get_lightweight_vector_store()
-            docs = vs.all_docs()
-            document_count = len({str((doc.get("metadata") or {}).get("document", "")) for doc in docs if doc.get("metadata")})
-            return {
-                "api_status": "Standby",
-                "documents": str(document_count),
-                "chunks": str(len(docs)),
-                "vector_status": "Standby",
-                "avg_latency": average_latency_label(),
-                "model": settings.embedding_model.split("/")[-1],
-            }
-        except Exception:
-            return {
-                "api_status": "Standby",
-                "documents": "-",
-                "chunks": "-",
-                "vector_status": "Standby",
-                "avg_latency": average_latency_label(),
-                "model": settings.embedding_model.split("/")[-1],
-            }
+
+        return {
+            "api_status": "Standby",
+            "documents": "-",
+            "chunks": "-",
+            "vector_status": "Not Loaded",
+            "avg_latency": average_latency_label(),
+            "model": settings.embedding_model.split("/")[-1],
+        }
+
+    docs = service.vector_store.all_docs()
+    document_count = len(
+        {
+            str((doc.get("metadata") or {}).get("document", ""))
+            for doc in docs
+            if doc.get("metadata")
+        }
+    )
+
+    return {
+        "api_status": "Online",
+        "documents": str(document_count),
+        "chunks": str(len(docs)),
+        "vector_status": "Ready",
+        "avg_latency": average_latency_label(),
+        "model": settings.embedding_model.split("/")[-1],
+    }
     try:
         docs = service.vector_store.all_docs()
         document_count = len({str((doc.get("metadata") or {}).get("document", "")) for doc in docs if doc.get("metadata")})
