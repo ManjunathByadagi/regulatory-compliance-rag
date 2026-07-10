@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import html
+import json
 import re
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from textwrap import dedent
 from uuid import uuid4
 
 import streamlit as st
@@ -42,27 +44,44 @@ st.set_page_config(
 
 
 def inject_css() -> None:
-    st.markdown(
+    css = dedent(
         """
-        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
         :root {
-            --bg: #0F172A;
-            --panel: #1E293B;
-            --panel-soft: #273449;
-            --accent: #3B82F6;
+            --bg: #050816;
+            --panel: rgba(18, 24, 40, .72);
+            --panel2: rgba(255, 255, 255, .06);
+            --primary: #6C63FF;
+            --secondary: #38BDF8;
+            --accent: #F59E0B;
             --success: #22C55E;
-            --warning: #F59E0B;
             --danger: #EF4444;
             --text: #FFFFFF;
             --muted: #94A3B8;
-            --border: rgba(148, 163, 184, 0.22);
-            --shadow: 0 18px 45px rgba(2, 6, 23, 0.28);
+            --border: rgba(255, 255, 255, .08);
+            --shadow: 0 20px 60px rgba(0, 0, 0, .35);
         }
 
         html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-            background: var(--bg);
-            color: var(--text);
-            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:
+            radial-gradient(ellipse 58% 42% at 12% -4%, rgba(56,132,246,0.32) 0%, transparent 62%),
+            radial-gradient(ellipse 60% 48% at 105% 108%, rgba(245,158,11,0.30) 0%, transparent 58%),
+            radial-gradient(ellipse 40% 30% at 70% 0%, rgba(109,40,217,0.22) 0%, transparent 60%),
+            linear-gradient(160deg,#050814 0%,#070a18 45%,#05060f 100%);
+            background-attachment: fixed;
+            font-family: 'Inter', sans-serif;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, .06);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 24px;
+            box-shadow: var(--shadow);
         }
 
         [data-testid="stHeader"] {
@@ -70,8 +89,11 @@ def inject_css() -> None:
         }
 
         .block-container {
-            max-width: 1240px;
-            padding: 2.2rem 2.4rem 5.8rem;
+            max-width: 1450px;
+            padding-top: 30px;
+            padding-left: 60px;
+            padding-right: 60px;
+            padding-bottom: 60px;
         }
 
         [data-testid="stSidebar"] {
@@ -90,26 +112,36 @@ def inject_css() -> None:
         }
 
         .app-header {
-            display: flex;
             align-items: flex-start;
-            justify-content: space-between;
+            display: flex;
             gap: 1.5rem;
+            justify-content: space-between;
             margin-bottom: 1.5rem;
+            overflow: visible;
+            position: relative;
+        }
+
+        .app-header-content {
+            align-items: center;
+            display: flex;
+            gap: 1.1rem;
+            position: relative;
+            z-index: 1;
         }
 
         .eyebrow {
             color: var(--accent);
             font-size: 0.78rem;
             font-weight: 700;
-            letter-spacing: 0;
             text-transform: uppercase;
             margin-bottom: 0.45rem;
         }
 
         .app-title {
-            font-size: 2.15rem;
-            font-weight: 760;
-            line-height: 1.1;
+            font-size: 2.35rem;
+            font-weight: 830;
+            letter-spacing: -0.01em;
+            line-height: 1.08;
             margin: 0;
         }
 
@@ -153,11 +185,57 @@ def inject_css() -> None:
             margin-top: 0.2rem;
         }
 
+        .halo-icon {
+            animation: haloPulse 3.2s ease-in-out infinite;
+            background: radial-gradient(circle at 35% 30%, #FFFBEB 0%, #FDE68A 32%, #F5B942 62%, rgba(245,185,66,0) 74%);
+            border-radius: 50%;
+            box-shadow: 0 0 18px 4px rgba(245,185,66,.5), 0 0 36px 10px rgba(245,185,66,.2);
+            flex-shrink: 0;
+            height: 42px;
+            position: relative;
+            width: 42px;
+        }
+
+        .halo-icon::after {
+            border: 1.5px solid rgba(245,185,66,.45);
+            border-radius: 50%;
+            content: "";
+            inset: -8px;
+            position: absolute;
+        }
+
+        .halo-icon.lg {
+            box-shadow: 0 0 34px 10px rgba(245,185,66,.6), 0 0 70px 22px rgba(245,185,66,.25);
+            height: 84px;
+            width: 84px;
+        }
+
+        .halo-icon.lg::after {
+            border-width: 2px;
+            inset: -14px;
+        }
+
+        @keyframes haloPulse {
+            0%, 100% { box-shadow: 0 0 18px 4px rgba(245,185,66,.5), 0 0 36px 10px rgba(245,185,66,.2); }
+            50% { box-shadow: 0 0 26px 8px rgba(245,185,66,.65), 0 0 50px 16px rgba(245,185,66,.3); }
+        }
+
+        .hero-backdrop {
+            background: radial-gradient(circle, rgba(245,158,11,.35) 0%, rgba(56,132,246,.16) 45%, transparent 72%);
+            filter: blur(28px);
+            height: 220px;
+            left: -50px;
+            pointer-events: none;
+            position: absolute;
+            top: -60px;
+            width: 220px;
+            z-index: 0;
+        }
+
         .section-label {
             color: var(--muted);
             font-size: 0.72rem;
             font-weight: 760;
-            letter-spacing: 0;
             margin: 1.25rem 0 0.55rem;
             text-transform: uppercase;
         }
@@ -433,24 +511,549 @@ def inject_css() -> None:
         }
 
         .login-card {
-            background: rgba(30, 41, 59, 0.88);
+            background: rgba(30, 41, 59, 0.72);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            box-shadow: var(--shadow);
-            margin: 9vh auto 0;
-            max-width: 440px;
-            padding: 1.4rem;
+            border-radius: 24px;
+            box-shadow: 0 30px 80px rgba(0,0,0,.45);
+            margin: 7vh auto 0;
+            max-width: 460px;
+            padding: 2.2rem 1.6rem 1.6rem;
+        }
+
+        .login-hero {
+            align-items: center;
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .login-hero .halo-icon.lg {
+            margin-bottom: 1.1rem;
         }
 
         .login-title {
-            font-size: 1.55rem;
-            font-weight: 780;
-            margin-bottom: 0.35rem;
+            font-size: 2rem;
+            font-weight: 850;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.55rem;
         }
 
         .login-copy {
             color: var(--muted);
-            margin-bottom: 1rem;
+            line-height: 1.55;
+            margin-bottom: 1.4rem;
+        }
+
+        .page-shell {
+            position: relative;
+        }
+
+        .page-shell::before,
+        .page-shell::after {
+            content: "";
+            position: fixed;
+            pointer-events: none;
+            z-index: -1;
+            filter: blur(34px);
+        }
+
+        .page-shell::before {
+            width: 340px;
+            height: 340px;
+            top: -50px;
+            left: -80px;
+            background: radial-gradient(circle, rgba(124, 58, 237, 0.32) 0%, transparent 68%);
+        }
+
+        .page-shell::after {
+            width: 360px;
+            height: 360px;
+            right: -120px;
+            bottom: -140px;
+            background: radial-gradient(circle, rgba(251, 191, 36, 0.18) 0%, transparent 70%);
+        }
+
+        .panel-card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .04));
+            border: 1px solid rgba(255, 255, 255, .10);
+            border-radius: 24px;
+            box-shadow: 0 16px 40px rgba(2, 6, 23, .30);
+            backdrop-filter: blur(22px) saturate(140%);
+            -webkit-backdrop-filter: blur(22px) saturate(140%);
+        }
+
+        .sidebar-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            padding-top: 0.25rem;
+        }
+
+        .sidebar-hero {
+            align-items: flex-start;
+            display: flex;
+            gap: 0.85rem;
+            padding: 1rem;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .sidebar-user {
+            padding: 0.95rem 1rem;
+        }
+
+        .sidebar-user-title {
+            font-size: 0.88rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+        }
+
+        .sidebar-user-subtitle {
+            color: var(--muted);
+            font-size: 0.75rem;
+            margin-top: 0.18rem;
+        }
+
+        .sidebar-nav-item {
+            align-items: center;
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.86rem 1rem;
+        }
+
+        .sidebar-nav-label {
+            align-items: center;
+            display: inline-flex;
+            gap: 0.5rem;
+            font-size: 0.88rem;
+            font-weight: 800;
+        }
+
+        .sidebar-nav-meta {
+            color: var(--muted);
+            font-size: 0.74rem;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            margin: 0.8rem 0 1rem;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .10), transparent);
+        }
+
+        .hero-card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .04));
+            border: 1px solid rgba(255, 255, 255, .10);
+            border-radius: 28px;
+            box-shadow: 0 24px 60px rgba(2, 6, 23, .36);
+            overflow: hidden;
+            padding: 1.5rem;
+            position: relative;
+        }
+
+        .hero-card::before {
+            content: "";
+            position: absolute;
+            inset: auto auto -120px -100px;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(124, 58, 237, .22) 0%, rgba(37, 99, 235, .12) 42%, transparent 72%);
+            filter: blur(10px);
+            pointer-events: none;
+        }
+
+        .hero-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(115deg, transparent 20%, rgba(255,255,255,.04) 48%, transparent 68%);
+            pointer-events: none;
+        }
+
+        .hero-content {
+            display: flex;
+            align-items: flex-start;
+            gap: 1.1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-copy {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1.2rem;
+        }
+
+        .hero-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+            margin-top: 0.9rem;
+        }
+
+        .status-pill {
+            align-items: center;
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 999px;
+            display: inline-flex;
+            font-size: 0.78rem;
+            font-weight: 800;
+            gap: 0.35rem;
+            padding: 0.38rem 0.72rem;
+            white-space: nowrap;
+        }
+
+        .status-pill.ready {
+            background: rgba(34, 197, 94, .14);
+            color: #86EFAC;
+        }
+
+        .status-pill.loading {
+            background: rgba(245, 158, 11, .14);
+            color: #FCD34D;
+        }
+
+        .status-pill.offline {
+            background: rgba(239, 68, 68, .14);
+            color: #FCA5A5;
+        }
+
+        .ghost-button {
+            align-items: center;
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 999px;
+            color: var(--text);
+            display: inline-flex;
+            font-size: 0.9rem;
+            font-weight: 800;
+            gap: 0.45rem;
+            padding: 0.82rem 1.05rem;
+            text-decoration: none;
+            transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+        }
+
+        .ghost-button.primary {
+            background: linear-gradient(135deg, rgba(124,58,237,.96), rgba(37,99,235,.94));
+            box-shadow: 0 14px 34px rgba(37,99,235,.18);
+        }
+
+        .ghost-button.secondary {
+            background: rgba(255,255,255,.05);
+        }
+
+        .ghost-button:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255,255,255,.18);
+            box-shadow: 0 16px 34px rgba(2,6,23,.34);
+        }
+
+        .metric-grid {
+            display: grid;
+            gap: 0.95rem;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            margin: 1rem 0 1.35rem;
+        }
+
+        .metric-card {
+            background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 24px;
+            box-shadow: 0 16px 40px rgba(2, 6, 23, .30);
+            overflow: hidden;
+            padding: 1rem;
+            position: relative;
+            transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+        }
+
+        .metric-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(124,58,237,.10), rgba(37,99,235,.08), transparent 70%);
+            pointer-events: none;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(124,58,237,.34);
+            box-shadow: 0 18px 52px rgba(2,6,23,.40);
+        }
+
+        .metric-icon {
+            font-size: 1.15rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .metric-number {
+            font-size: 1.7rem;
+            font-weight: 860;
+            letter-spacing: -0.04em;
+            line-height: 1;
+            margin-bottom: 0.2rem;
+        }
+
+        .metric-label {
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .chat-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 0.95rem;
+            margin-top: 0.9rem;
+        }
+
+        .message-row {
+            animation: fadeUp 260ms ease-out;
+            display: flex;
+            width: 100%;
+        }
+
+        .user-bubble {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.96), rgba(37, 99, 235, 0.92));
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 22px 22px 6px 22px;
+            box-shadow: 0 18px 42px rgba(37,99,235,.22);
+            color: white;
+            max-width: min(760px, 78%);
+            padding: 1rem 1.1rem;
+            white-space: pre-wrap;
+        }
+
+        .assistant-card {
+            background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 24px 24px 24px 6px;
+            box-shadow: 0 16px 40px rgba(2, 6, 23, .30);
+            max-width: min(920px, 88%);
+            overflow: hidden;
+            padding: 1.1rem;
+            position: relative;
+        }
+
+        .assistant-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top right, rgba(124,58,237,.10), transparent 35%), radial-gradient(circle at bottom left, rgba(37,99,235,.08), transparent 38%);
+            pointer-events: none;
+        }
+
+        .answer-copy {
+            color: #E5E7EB;
+            font-size: 1rem;
+            line-height: 1.75;
+            margin-top: 0.8rem;
+            position: relative;
+            white-space: pre-wrap;
+            z-index: 1;
+        }
+
+        .badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+            margin-top: 0.2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .badge {
+            align-items: center;
+            border-radius: 999px;
+            display: inline-flex;
+            font-size: 0.74rem;
+            font-weight: 800;
+            gap: 0.35rem;
+            letter-spacing: 0.01em;
+            padding: 0.35rem 0.62rem;
+        }
+
+        .badge.success { background: rgba(34, 197, 94, 0.14); color: #86EFAC; }
+        .badge.warning { background: rgba(245, 158, 11, 0.16); color: #FCD34D; }
+        .badge.danger { background: rgba(239, 68, 68, 0.14); color: #FCA5A5; }
+        .badge.info { background: rgba(59, 130, 246, 0.14); color: #93C5FD; }
+
+        .sources-grid {
+            display: grid;
+            gap: 0.85rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin-top: 0.95rem;
+        }
+
+        .source-card {
+            background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.035));
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 24px;
+            box-shadow: 0 16px 40px rgba(2,6,23,.28);
+            overflow: hidden;
+            padding: 1rem;
+            position: relative;
+            transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
+        }
+
+        .source-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(251,191,36,.08), rgba(37,99,235,.05), transparent 72%);
+            pointer-events: none;
+        }
+
+        .source-card:hover {
+            background: linear-gradient(180deg, rgba(255,255,255,.11), rgba(255,255,255,.05));
+            border-color: rgba(124,58,237,.34);
+            transform: translateY(-3px);
+        }
+
+        .source-title { color: var(--text); font-size: 0.96rem; font-weight: 800; line-height: 1.3; }
+        .source-meta { color: var(--muted); font-size: 0.76rem; margin: 0.34rem 0 0.7rem; }
+        .source-excerpt { color: #CBD5E1; font-size: 0.84rem; line-height: 1.58; }
+
+        .pdf-link {
+            border: 1px solid rgba(124,58,237,.40);
+            border-radius: 999px;
+            color: #E0E7FF;
+            display: inline-flex;
+            font-size: 0.78rem;
+            font-weight: 800;
+            margin-top: 0.8rem;
+            padding: 0.46rem 0.8rem;
+            position: relative;
+            text-decoration: none;
+            transition: background 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+            z-index: 1;
+        }
+
+        .pdf-link:hover {
+            background: rgba(124,58,237,.18);
+            border-color: rgba(124,58,237,.70);
+            box-shadow: 0 12px 26px rgba(124,58,237,.20);
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        mark { background: rgba(124,58,237,.32); border-radius: 4px; color: white; padding: 0.04rem 0.16rem; }
+
+        .empty-state {
+            background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 24px;
+            box-shadow: 0 16px 40px rgba(2,6,23,.28);
+            margin-top: 1.2rem;
+            overflow: hidden;
+            padding: 2.2rem;
+            position: relative;
+        }
+
+        .empty-title { color: var(--text); font-size: 1.28rem; font-weight: 820; margin-bottom: 0.45rem; }
+        .empty-copy { color: var(--muted); max-width: 640px; }
+
+        .source-row, .history-row, .setting-row, .footer-row {
+            align-items: center;
+            background: rgba(8, 15, 31, 0.58);
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 18px;
+            color: var(--text);
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.55rem;
+            padding: 0.78rem 0.88rem;
+            transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+        }
+
+        .history-row { align-items: flex-start; display: block; }
+        .history-row:hover, .source-row:hover, .setting-row:hover, .footer-row:hover { background: rgba(15, 23, 42, 0.78); border-color: rgba(124,58,237,.34); transform: translateY(-1px); }
+        .history-title { font-size: 0.86rem; font-weight: 700; line-height: 1.35; }
+        .history-meta { color: var(--muted); font-size: 0.72rem; margin-top: 0.24rem; }
+        .check { color: var(--success); font-weight: 800; }
+
+        div.stButton > button,
+        div.stDownloadButton > button,
+        [data-testid="stBaseButton-secondary"],
+        [data-testid="stBaseButton-primary"] {
+            background: linear-gradient(135deg, rgba(124,58,237,.96), rgba(37,99,235,.92));
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 999px;
+            color: var(--text);
+            font-weight: 800;
+            transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+            box-shadow: 0 14px 34px rgba(37,99,235,.18);
+        }
+
+        div.stButton > button:hover,
+        div.stDownloadButton > button:hover,
+        [data-testid="stBaseButton-secondary"]:hover,
+        [data-testid="stBaseButton-primary"]:hover {
+            background: linear-gradient(135deg, rgba(124,58,237,1), rgba(59,130,246,1));
+            border-color: rgba(255,255,255,.18);
+            box-shadow: 0 20px 42px rgba(37,99,235,.28);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        [data-testid="stChatInput"] {
+            background: linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.04));
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 24px;
+            box-shadow: 0 20px 55px rgba(2, 6, 23, 0.40);
+        }
+
+        [data-testid="stChatInput"] textarea { font-size: 0.98rem; line-height: 1.5; }
+
+        .input-shell {
+            background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 28px;
+            box-shadow: 0 16px 40px rgba(2,6,23,.28);
+            padding: 0.6rem;
+        }
+
+        .chat-input-wrapper { position: relative; }
+        .chat-input-label { color: var(--muted); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; margin-bottom: 0.45rem; text-transform: uppercase; }
+
+        .login-card {
+            background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+            backdrop-filter: blur(22px);
+            -webkit-backdrop-filter: blur(22px);
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 24px;
+            box-shadow: 0 24px 60px rgba(2,6,23,.36);
+            margin: 7vh auto 0;
+            max-width: 460px;
+            padding: 2.2rem 1.6rem 1.6rem;
+        }
+
+        .login-hero { align-items: center; display: flex; flex-direction: column; text-align: center; }
+        .login-hero .halo-icon.lg { margin-bottom: 1.1rem; }
+        .login-title { font-size: 2rem; font-weight: 860; letter-spacing: -0.04em; margin-bottom: 0.55rem; }
+        .login-copy { color: var(--muted); line-height: 1.6; margin-bottom: 1.4rem; }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes glowPulse {
+            0%, 100% { box-shadow: 0 0 18px 4px rgba(251,191,36,.40), 0 0 38px 12px rgba(37,99,235,.18); }
+            50% { box-shadow: 0 0 30px 10px rgba(251,191,36,.58), 0 0 58px 18px rgba(37,99,235,.28); }
         }
 
         @keyframes fadeIn {
@@ -485,9 +1088,26 @@ def inject_css() -> None:
                 max-width: 100%;
             }
         }
-        </style>
+        """
+    ).strip()
+
+    components.html(
+        f"""
+        <script>
+        (function() {{
+            const css = {json.dumps(css)};
+            const parentDoc = window.parent.document;
+            let styleTag = parentDoc.getElementById('rag-product-theme');
+            if (!styleTag) {{
+                styleTag = parentDoc.createElement('style');
+                styleTag.id = 'rag-product-theme';
+                parentDoc.head.appendChild(styleTag);
+            }}
+            styleTag.textContent = css;
+        }})();
+        </script>
         """,
-        unsafe_allow_html=True,
+        height=0,
     )
 
 
@@ -541,16 +1161,10 @@ def login() -> None:
     inject_css()
     st.markdown(
         """
-        <div class="login-card">
-            <div class="logo-lockup">
-                <div class="logo-mark">RC</div>
-                <div>
-                    <div class="logo-title">Regulatory Compliance AI</div>
-                    <div class="logo-subtitle">Secure assistant console</div>
-                </div>
-            </div>
-            <div class="login-title">Welcome back</div>
-            <div class="login-copy">Sign in to search RBI Circulars, Basel III, and SEBI Regulations.</div>
+        <div class="login-card login-hero">
+            <div class="halo-icon lg"></div>
+            <div class="login-title">Regulatory Compliance AI</div>
+            <div class="login-copy">Experience the next generation of regulatory intelligence.<br>Ask about RBI Circulars, Basel III, and SEBI Regulations.</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -660,12 +1274,40 @@ def render_sidebar(stats: dict[str, str]) -> None:
     with st.sidebar:
         st.markdown(
             """
-            <div class="logo-lockup">
-                <div class="logo-mark">RC</div>
-                <div>
-                    <div class="logo-title">Regulatory Compliance AI</div>
-                    <div class="logo-subtitle">Enterprise RAG workspace</div>
+            <div class="sidebar-shell">
+                <div class="panel-card sidebar-hero">
+                    <div class="halo-icon"></div>
+                    <div class="sidebar-brand">
+                        <div class="logo-title">Regulatory Compliance AI</div>
+                        <div class="logo-subtitle">Enterprise AI workspace</div>
+                    </div>
                 </div>
+                <div class="panel-card sidebar-user">
+                    <div class="sidebar-user-title">Workspace</div>
+                    <div class="sidebar-user-subtitle">Enterprise regulatory research environment</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
+
+        st.markdown(
+            """
+            <div class="sidebar-nav-item panel-card">
+                <div class="sidebar-nav-label">✦ <span>New Chat</span></div>
+                <div class="sidebar-nav-meta">Start fresh</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            """
+            <div class="sidebar-nav-item panel-card">
+                <div class="sidebar-nav-label">👤 <span>User</span></div>
+                <div class="sidebar-nav-meta">Authenticated</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -683,7 +1325,7 @@ def render_sidebar(stats: dict[str, str]) -> None:
             meta = f"{len(chat['messages']) // 2} questions"
             st.markdown(
                 f"""
-                <div class="history-row">
+                <div class="history-row panel-card">
                     <div class="history-title">{title}</div>
                     <div class="history-meta">{html.escape(chat["created_at"])} &middot; {meta}</div>
                 </div>
@@ -702,7 +1344,7 @@ def render_sidebar(stats: dict[str, str]) -> None:
         st.markdown('<div class="section-label">Data Sources</div>', unsafe_allow_html=True)
         for label in ("RBI Circulars", "Basel III", "SEBI Regulations"):
             st.markdown(
-                f'<div class="source-row"><span><span class="check">&#10003;</span> {label}</span><span>Indexed</span></div>',
+                f'<div class="source-row panel-card"><span><span class="check">&#10003;</span> {label}</span><span class="status-pill ready">Ready</span></div>',
                 unsafe_allow_html=True,
             )
 
@@ -710,6 +1352,12 @@ def render_sidebar(stats: dict[str, str]) -> None:
             "Source filter",
             list(SOURCE_FILTERS),
             index=list(SOURCE_FILTERS).index(st.session_state.selected_source),
+        )
+
+        st.markdown('<div class="section-label">Filters</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="setting-row panel-card"><span>Current Source</span><strong>{html.escape(st.session_state.selected_source)}</strong></div>',
+            unsafe_allow_html=True,
         )
 
         st.markdown('<div class="section-label">Settings</div>', unsafe_allow_html=True)
@@ -722,16 +1370,16 @@ def render_sidebar(stats: dict[str, str]) -> None:
         }
         for label, value in setting_rows.items():
             st.markdown(
-                f'<div class="setting-row"><span>{html.escape(label)}</span><strong>{html.escape(value)}</strong></div>',
+                f'<div class="setting-row panel-card"><span>{html.escape(label)}</span><strong>{html.escape(value)}</strong></div>',
                 unsafe_allow_html=True,
             )
 
         st.markdown('<div class="section-label">Footer</div>', unsafe_allow_html=True)
         st.markdown(
             f"""
-            <div class="footer-row"><span>Version</span><strong>{APP_VERSION}</strong></div>
-            <div class="footer-row"><span>GitHub</span><strong>Repository</strong></div>
-            <div class="footer-row"><span>Documentation</span><strong>User Guide</strong></div>
+            <div class="footer-row panel-card"><span>Version</span><strong>{APP_VERSION}</strong></div>
+            <div class="footer-row panel-card"><span>GitHub</span><strong>Repository</strong></div>
+            <div class="footer-row panel-card"><span>Documentation</span><strong>User Guide</strong></div>
             """,
             unsafe_allow_html=True,
         )
@@ -740,11 +1388,24 @@ def render_sidebar(stats: dict[str, str]) -> None:
 def render_header() -> None:
     st.markdown(
         """
-        <div class="app-header">
-            <div>
-                <div class="eyebrow">Regulatory intelligence workspace</div>
-                <h1 class="app-title">Regulatory Compliance AI Assistant</h1>
-                <div class="subtitle">Ask questions about RBI Circulars, Basel III, and SEBI Regulations.</div>
+        <div class="hero-card app-header">
+            <div class="hero-backdrop"></div>
+            <div class="hero-content app-header-content">
+                <div class="halo-icon lg"></div>
+                <div class="hero-copy">
+                    <div class="eyebrow">Regulatory Intelligence Workspace</div>
+                    <h1 class="app-title">Regulatory Compliance AI Assistant</h1>
+                    <div class="subtitle">Enterprise-grade Retrieval-Augmented Generation platform for RBI Circulars, Basel III Guidance, and SEBI Regulations.</div>
+                    <div class="hero-actions">
+                        <div class="ghost-button primary">▶ Try Example</div>
+                        <div class="ghost-button secondary">⬆ Upload Documents</div>
+                    </div>
+                    <div class="hero-badges">
+                        <span class="status-pill ready">🟢 Ready</span>
+                        <span class="status-pill loading">🟡 Loading</span>
+                        <span class="status-pill offline">🔴 Offline</span>
+                    </div>
+                </div>
             </div>
         </div>
         """,
@@ -754,15 +1415,15 @@ def render_header() -> None:
 
 def render_metric_cards(stats: dict[str, str]) -> None:
     metrics = [
-        ("Documents Indexed", stats["documents"]),
-        ("Chunks Indexed", stats["chunks"]),
-        ("Vector Database Status", stats["vector_status"]),
-        ("API Status", stats["api_status"]),
-        ("Average Latency", stats["avg_latency"]),
+        ("📄", "Documents", stats["documents"]),
+        ("🧩", "Chunks", stats["chunks"]),
+        ("⚡", "Latency", stats["avg_latency"]),
+        ("🧠", "Embedding Model", stats["model"]),
+        ("🟢", "API Status", stats["api_status"]),
     ]
     cards = "".join(
-        f'<div class="metric-card"><div class="metric-label">{html.escape(label)}</div><div class="metric-value">{html.escape(value)}</div></div>'
-        for label, value in metrics
+        f'<div class="metric-card"><div class="metric-icon">{html.escape(icon)}</div><div class="metric-number">{html.escape(value)}</div><div class="metric-label">{html.escape(label)}</div></div>'
+        for icon, label, value in metrics
     )
     st.markdown(f'<div class="metric-grid">{cards}</div>', unsafe_allow_html=True)
 
@@ -771,7 +1432,7 @@ def render_chat(chat: dict) -> None:
     if not chat["messages"]:
         st.markdown(
             """
-            <div class="empty-state">
+            <div class="empty-state panel-card">
                 <div class="empty-title">Start with a compliance question</div>
                 <div class="empty-copy">
                     Try asking about capital adequacy, CRAR, Basel III reforms, SEBI portfolio manager rules,
@@ -843,8 +1504,8 @@ def render_sources(sources: list[dict]) -> None:
         pdf_link = pdf_button_html(source.get("download_link"))
         st.markdown(
             f"""
-            <div class="source-card">
-                <div class="source-title">{document}</div>
+            <div class="source-card panel-card">
+                <div class="source-title">📄 {document}</div>
                 <div class="source-meta">{organization} &middot; Page {page} &middot; {section}</div>
                 <div class="source-excerpt">{excerpt}</div>
                 {pdf_link}
@@ -902,6 +1563,7 @@ def submit_question(service: RAGService, question: str) -> None:
 
 
 def render_input_area(service: RAGService | None) -> None:
+    st.markdown('<div class="chat-input-label">Message Composer</div>', unsafe_allow_html=True)
     controls = st.columns([1, 1, 6])
     with controls[0]:
         if st.button("Clear Chat", use_container_width=True):
@@ -913,7 +1575,7 @@ def render_input_area(service: RAGService | None) -> None:
             st.rerun()
 
     is_disabled = st.session_state.get("service_error") is not None
-    prompt = st.chat_input("Ask a compliance question...", disabled=is_disabled)
+    prompt = st.chat_input("Ask anything about RBI Circulars, Basel III, or SEBI Regulations...", disabled=is_disabled)
     if prompt:
         if service is None:
             with st.spinner("Initializing RAG models (first-time startup)..."):
